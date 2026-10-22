@@ -96,9 +96,9 @@
       <!-- Main Game Area -->
       <div class="content">
         <div class="game-wrapper">
-          <div class="scoreboard" id="scoreDisplay">3D Territory Captured: 0%</div>
+          <div class="scoreboard" id="scoreDisplay">Territory Captured: 0%</div>
           <canvas id="gameCanvas" width="700" height="450"></canvas>
-          <div class="controls-hint">Use <b>Arrow Keys</b> or <b>W, A, S, D</b> to navigate the 3D grid!</div>
+          <div class="controls-hint">Use <b>Arrow Keys</b> or <b>W, A, S, D</b> to navigate! Avoid AI trails!</div>
         </div>
       </div>
 
@@ -109,78 +109,112 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 3D Engine Constants
-        const fov = 350; // Field of view depth
+        const fov = 400;
         const cx = canvas.width / 2;
-        const cy = canvas.height / 2 + 50;
+        const cy = canvas.height / 2 - 40;
 
         let player = {
-          x: 0,   // 3D World X
-          z: 0,   // 3D World Z (Depth)
-          dx: 1.5,
+          x: 0,
+          z: 0,
+          dx: 2.5,
           dz: 0,
-          radius: 12,
+          radius: 16,
           trail: []
         };
+
+        // AI Bot Opponents
+        let bots = [
+          { x: -150, z: -100, dx: 0, dz: 2, color: '#ef4444', radius: 14, trail: [], timer: 0 },
+          { x: 150, z: 100, dx: -2, dz: 0, color: '#22c55e', radius: 14, trail: [], timer: 0 },
+          { x: -150, z: 100, dx: 2, dz: 0, color: '#eab308', radius: 14, trail: [], timer: 0 }
+        ];
 
         let score = 0;
 
         window.addEventListener('keydown', e => {
-          if ((e.key === 'ArrowUp' || e.key === 'w') && player.dz === 0) { player.dx = 0; player.dz = -1.5; }
-          if ((e.key === 'ArrowDown' || e.key === 's') && player.dz === 0) { player.dx = 0; player.dz = 1.5; }
-          if ((e.key === 'ArrowLeft' || e.key === 'a') && player.dx === 0) { player.dx = -1.5; player.dz = 0; }
-          if ((e.key === 'ArrowRight' || e.key === 'd') && player.dx === 0) { player.dx = 1.5; player.dz = 0; }
+          if ((e.key === 'ArrowUp' || e.key === 'w') && player.dz === 0) { player.dx = 0; player.dz = -2.5; }
+          if ((e.key === 'ArrowDown' || e.key === 's') && player.dz === 0) { player.dx = 0; player.dz = 2.5; }
+          if ((e.key === 'ArrowLeft' || e.key === 'a') && player.dx === 0) { player.dx = -2.5; player.dz = 0; }
+          if ((e.key === 'ArrowRight' || e.key === 'd') && player.dx === 0) { player.dx = 2.5; player.dz = 0; }
         });
 
         function project(x, y, z) {
-          // Perspective projection calculation
-          const scale = fov / (fov + z);
+          const tiltY = y - 250; 
+          const scale = fov / (fov + z + 100);
           return {
             x: cx + x * scale,
-            y: cy + y * scale,
+            y: cy + tiltY * scale,
             scale: scale
           };
         }
 
         function update() {
+          // Update Player
           player.x += player.dx;
           player.z += player.dz;
 
-          // Boundary limits in 3D world space
-          if (player.x < -180) player.x = 180;
-          if (player.x > 180) player.x = -180;
-          if (player.z < -180) player.z = 180;
-          if (player.z > 180) player.z = -180;
+          if (player.x < -250) player.x = 250;
+          if (player.x > 250) player.x = -250;
+          if (player.z < -200) player.z = 200;
+          if (player.z > 200) player.z = -200;
 
-          // Push trail points in 3D
-          if (Math.random() < 0.25) {
+          if (Math.random() < 0.2) {
             player.trail.push({x: player.x, z: player.z});
-            if (player.trail.length > 120) player.trail.shift();
-            score = Math.min(100, Math.floor(player.trail.length * 0.8));
-            document.getElementById('scoreDisplay').textContent = "3D Territory Captured: " + score + "%";
+            if (player.trail.length > 180) player.trail.shift();
+            score = Math.min(100, Math.floor(player.trail.length * 0.6));
+            document.getElementById('scoreDisplay').textContent = "Territory Captured: " + score + "%";
           }
+
+          // Update AI Bots
+          bots.forEach(bot => {
+            bot.x += bot.dx;
+            bot.z += bot.dz;
+            bot.timer++;
+
+            // Random turning behavior for AI bots
+            if (bot.timer > 60 + Math.random() * 60) {
+              bot.timer = 0;
+              const dirs = [
+                {dx: 2, dz: 0}, {dx: -2, dz: 0},
+                {dx: 0, dz: 2}, {dx: 0, dz: -2}
+              ];
+              const newDir = dirs[Math.floor(Math.random() * dirs.length)];
+              bot.dx = newDir.dx;
+              bot.dz = newDir.dz;
+            }
+
+            if (bot.x < -250) bot.x = 250;
+            if (bot.x > 250) bot.x = -250;
+            if (bot.z < -200) bot.z = 200;
+            if (bot.z > 200) bot.z = -200;
+
+            if (Math.random() < 0.25) {
+              bot.trail.push({x: bot.x, z: bot.z});
+              if (bot.trail.length > 120) bot.trail.shift();
+            }
+          });
         }
 
         function drawGrid3D() {
-          // Draw 3D floor grid lines moving into perspective
           ctx.strokeStyle = '#1e293b';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.2;
 
-          const step = 30;
-          const limit = 180;
+          const step = 40;
+          const xLimit = 250;
+          const zLimit = 200;
 
-          for (let i = -limit; i <= limit; i += step) {
-            // Vertical grid lines (Z-axis depth)
-            let p1 = project(i, 0, -limit);
-            let p2 = project(i, 0, limit);
+          for (let i = -xLimit; i <= xLimit; i += step) {
+            let p1 = project(i, 0, -zLimit);
+            let p2 = project(i, 0, zLimit);
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.stroke();
+          }
 
-            // Horizontal grid lines (X-axis width)
-            let p3 = project(-limit, 0, i);
-            let p4 = project(limit, 0, i);
+          for (let i = -zLimit; i <= zLimit; i += step) {
+            let p3 = project(-xLimit, 0, i);
+            let p4 = project(xLimit, 0, i);
             ctx.beginPath();
             ctx.moveTo(p3.x, p3.y);
             ctx.lineTo(p4.x, p4.y);
@@ -189,30 +223,44 @@
         }
 
         function draw() {
-          // Clear screen
           ctx.fillStyle = '#0b0f19';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-          // Render 3D Grid floor
           drawGrid3D();
 
-          // Draw trail in 3D space
-          player.trail.forEach((t, idx) => {
-            const p = project(t.x, 0, t.z);
-            if (p.scale > 0) {
-              ctx.fillStyle = '#f97316';
+          // Draw Bot Trails & Bots
+          bots.forEach(bot => {
+            bot.trail.forEach(t => {
+              const p = project(t.x, 0, t.z);
+              if (p.scale > 0) {
+                ctx.fillStyle = bot.color;
+                ctx.fillRect(p.x - (7 * p.scale), p.y - (7 * p.scale), 14 * p.scale, 14 * p.scale);
+              }
+            });
+
+            const bp = project(bot.x, 0, bot.z);
+            if (bp.scale > 0) {
+              ctx.fillStyle = bot.color;
               ctx.beginPath();
-              ctx.arc(p.x, p.y, 6 * p.scale, 0, Math.PI * 2);
+              ctx.arc(bp.x, bp.y, bot.radius * bp.scale, 0, Math.PI * 2);
               ctx.fill();
             }
           });
 
-          // Draw Player in 3D (Orange Smiley 3D Disc)
-          const p = project(player.x, -5, player.z);
+          // Draw Player Territory Trail
+          player.trail.forEach((t) => {
+            const p = project(t.x, 0, t.z);
+            if (p.scale > 0) {
+              ctx.fillStyle = '#f97316';
+              ctx.fillRect(p.x - (8 * p.scale), p.y - (8 * p.scale), 16 * p.scale, 16 * p.scale);
+            }
+          });
+
+          // Draw Player (Overhead 3D Smiley Face)
+          const p = project(player.x, 0, player.z);
           if (p.scale > 0) {
             const r = player.radius * p.scale;
             
-            // Outer orange sphere/disc body
             ctx.fillStyle = '#f97316';
             ctx.beginPath();
             ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
@@ -221,8 +269,7 @@
             ctx.lineWidth = 2 * p.scale;
             ctx.stroke();
 
-            // Eyes & Smile projected onto 3D face
-            const eyeSize = Math.max(1.5, 3 * p.scale);
+            const eyeSize = Math.max(2, 3.5 * p.scale);
             ctx.fillStyle = '#7c2d12';
             ctx.fillRect(p.x - 5 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);
             ctx.fillRect(p.x + 3 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);

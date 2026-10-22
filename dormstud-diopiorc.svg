@@ -69,10 +69,10 @@
         }
 
         canvas {
-          background: #1e293b;
+          background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
           border: 2px solid #334155;
-          border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+          border-radius: 16px;
+          box-shadow: 0 15px 35px rgba(0,0,0,0.6);
         }
 
         .controls-hint {
@@ -89,16 +89,16 @@
             <div class="eye right"></div>
             <div class="smile"></div>
           </div>
-          <div class="logo-text">dormo.io</div>
+          <div class="logo-text">dormo.io 3D</div>
         </div>
       </div>
 
       <!-- Main Game Area -->
       <div class="content">
         <div class="game-wrapper">
-          <div class="scoreboard" id="scoreDisplay">Territory Captured: 0%</div>
-          <canvas id="gameCanvas" width="600" height="400"></canvas>
-          <div class="controls-hint">Use <b>Arrow Keys</b> or <b>W, A, S, D</b> to steer your territory!</div>
+          <div class="scoreboard" id="scoreDisplay">3D Territory Captured: 0%</div>
+          <canvas id="gameCanvas" width="700" height="450"></canvas>
+          <div class="controls-hint">Use <b>Arrow Keys</b> or <b>W, A, S, D</b> to navigate the 3D grid!</div>
         </div>
       </div>
 
@@ -109,58 +109,130 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // 3D Engine Constants
+        const fov = 350; // Field of view depth
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2 + 50;
+
         let player = {
-          x: 300,
-          y: 200,
-          size: 10,
-          dx: 2,
-          dy: 0,
+          x: 0,   // 3D World X
+          z: 0,   // 3D World Z (Depth)
+          dx: 1.5,
+          dz: 0,
+          radius: 12,
           trail: []
         };
 
         let score = 0;
 
         window.addEventListener('keydown', e => {
-          if ((e.key === 'ArrowUp' || e.key === 'w') && player.dy === 0) { player.dx = 0; player.dy = -2; }
-          if ((e.key === 'ArrowDown' || e.key === 's') && player.dy === 0) { player.dx = 0; player.dy = 2; }
-          if ((e.key === 'ArrowLeft' || e.key === 'a') && player.dx === 0) { player.dx = -2; player.dy = 0; }
-          if ((e.key === 'ArrowRight' || e.key === 'd') && player.dx === 0) { player.dx = 2; player.dy = 0; }
+          if ((e.key === 'ArrowUp' || e.key === 'w') && player.dz === 0) { player.dx = 0; player.dz = -1.5; }
+          if ((e.key === 'ArrowDown' || e.key === 's') && player.dz === 0) { player.dx = 0; player.dz = 1.5; }
+          if ((e.key === 'ArrowLeft' || e.key === 'a') && player.dx === 0) { player.dx = -1.5; player.dz = 0; }
+          if ((e.key === 'ArrowRight' || e.key === 'd') && player.dx === 0) { player.dx = 1.5; player.dz = 0; }
         });
+
+        function project(x, y, z) {
+          // Perspective projection calculation
+          const scale = fov / (fov + z);
+          return {
+            x: cx + x * scale,
+            y: cy + y * scale,
+            scale: scale
+          };
+        }
 
         function update() {
           player.x += player.dx;
-          player.y += player.dy;
+          player.z += player.dz;
 
-          // Screen boundaries
-          if (player.x < 0) player.x = canvas.width;
-          if (player.x > canvas.width) player.x = 0;
-          if (player.y < 0) player.y = canvas.height;
-          if (player.y > canvas.height) player.y = 0;
+          // Boundary limits in 3D world space
+          if (player.x < -180) player.x = 180;
+          if (player.x > 180) player.x = -180;
+          if (player.z < -180) player.z = 180;
+          if (player.z > 180) player.z = -180;
 
-          // Save trail
-          if (Math.random() < 0.3) {
-            player.trail.push({x: player.x, y: player.y});
-            if (player.trail.length > 150) player.trail.shift();
-            score = Math.min(100, Math.floor(player.trail.length * 0.7));
-            document.getElementById('scoreDisplay').textContent = "Territory Captured: " + score + "%";
+          // Push trail points in 3D
+          if (Math.random() < 0.25) {
+            player.trail.push({x: player.x, z: player.z});
+            if (player.trail.length > 120) player.trail.shift();
+            score = Math.min(100, Math.floor(player.trail.length * 0.8));
+            document.getElementById('scoreDisplay').textContent = "3D Territory Captured: " + score + "%";
+          }
+        }
+
+        function drawGrid3D() {
+          // Draw 3D floor grid lines moving into perspective
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1.5;
+
+          const step = 30;
+          const limit = 180;
+
+          for (let i = -limit; i <= limit; i += step) {
+            // Vertical grid lines (Z-axis depth)
+            let p1 = project(i, 0, -limit);
+            let p2 = project(i, 0, limit);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+
+            // Horizontal grid lines (X-axis width)
+            let p3 = project(-limit, 0, i);
+            let p4 = project(limit, 0, i);
+            ctx.beginPath();
+            ctx.moveTo(p3.x, p3.y);
+            ctx.lineTo(p4.x, p4.y);
+            ctx.stroke();
           }
         }
 
         function draw() {
-          ctx.fillStyle = '#0f172a';
+          // Clear screen
+          ctx.fillStyle = '#0b0f19';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-          // Draw trail
-          ctx.fillStyle = '#f97316';
-          player.trail.forEach(t => {
-            ctx.fillRect(t.x - 4, t.y - 4, 8, 8);
+          // Render 3D Grid floor
+          drawGrid3D();
+
+          // Draw trail in 3D space
+          player.trail.forEach((t, idx) => {
+            const p = project(t.x, 0, t.z);
+            if (p.scale > 0) {
+              ctx.fillStyle = '#f97316';
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 6 * p.scale, 0, Math.PI * 2);
+              ctx.fill();
+            }
           });
 
-          // Draw player head
-          ctx.fillStyle = '#38bdf8';
-          ctx.beginPath();
-          ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-          ctx.fill();
+          // Draw Player in 3D (Orange Smiley 3D Disc)
+          const p = project(player.x, -5, player.z);
+          if (p.scale > 0) {
+            const r = player.radius * p.scale;
+            
+            // Outer orange sphere/disc body
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ea580c';
+            ctx.lineWidth = 2 * p.scale;
+            ctx.stroke();
+
+            // Eyes & Smile projected onto 3D face
+            const eyeSize = Math.max(1.5, 3 * p.scale);
+            ctx.fillStyle = '#7c2d12';
+            ctx.fillRect(p.x - 5 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);
+            ctx.fillRect(p.x + 3 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);
+
+            ctx.strokeStyle = '#7c2d12';
+            ctx.lineWidth = 1.5 * p.scale;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y + 2 * p.scale, 4 * p.scale, 0, Math.PI, false);
+            ctx.stroke();
+          }
         }
 
         function loop() {

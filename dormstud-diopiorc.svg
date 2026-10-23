@@ -106,12 +106,19 @@
         let startTime = 0;
         let timerInterval = null;
         let timeoutId = null;
-        let bestTime = null;
 
         const box = document.getElementById('gameBox');
         const mainText = document.getElementById('mainText');
         const subText = document.getElementById('subText');
         const bestScoreEl = document.getElementById('bestScore');
+
+        // Load saved best score from localStorage on startup
+        let savedBest = localStorage.getItem('dormo_io_best_time');
+        let bestTime = savedBest !== null ? parseFloat(savedBest) : null;
+
+        if (bestTime !== null) {
+          bestScoreEl.textContent = 'Best Time: ' + bestTime.toFixed(3) + ' s';
+        }
 
         function handleClick() {
           if (gameState === 'IDLE' || gameState === 'RESULT') {
@@ -155,6 +162,7 @@
 
             if (bestTime === null || reactionTime < bestTime) {
               bestTime = reactionTime;
+              localStorage.setItem('dormo_io_best_time', bestTime);
               bestScoreEl.textContent = 'Best Time: ' + bestTime.toFixed(3) + ' s';
             }
           }

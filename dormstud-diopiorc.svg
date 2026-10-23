@@ -2,9 +2,9 @@
   <foreignObject width="100%" height="100%">
     <div xmlns="http://www.w3.org/1999/xhtml" style="width: 100vw; height: 100vh; margin: 0; padding: 0; background-color: #0b0f19; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; position: relative;">
       
-      <!-- Browser Tab Title and Custom Smiley Favicon -->
-      <title>dormo.io</title>
-      <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;circle cx='50' cy='50' r='48' fill='%23f97316'/&gt;&lt;ellipse cx='35' cy='38' rx='6' ry='5' fill='%237c2d12'/&gt;&lt;ellipse cx='65' cy='38' rx='6' ry='5' fill='%237c2d12'/&gt;&lt;path d='M 32 60 Q 50 78 68 60' stroke='%237c2d12' stroke-width='4' fill='none' stroke-linecap='round'/&gt;&lt;/svg&gt;" />
+      <!-- Browser Tab Title and Clock Favicon -->
+      <title>dormo.io - Reaction Test</title>
+      <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;⏰&lt;/text&gt;&lt;/svg&gt;" />
 
       <style>
         * { box-sizing: border-box; user-select: none; }
@@ -22,26 +22,14 @@
         }
         .nav-left { display: flex; align-items: center; gap: 12px; }
         
-        .smiley-logo {
-          width: 42px;
-          height: 42px;
-          background: #f97316;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 0 12px rgba(249, 115, 22, 0.4);
-          position: relative;
+        .logo-icon {
+          font-size: 1.6rem;
         }
-        .eye { width: 6px; height: 6px; background: #7c2d12; border-radius: 50%; position: absolute; top: 14px; }
-        .eye.left { left: 11px; }
-        .eye.right { right: 11px; }
-        .smile { width: 20px; height: 10px; border-bottom: 3px solid #7c2d12; border-radius: 0 0 20px 20px; position: absolute; bottom: 10px; }
 
         .logo-text {
           font-size: 1.3rem;
           font-weight: 800;
-          color: #f97316;
+          color: #38bdf8;
           letter-spacing: 0.5px;
         }
         
@@ -52,243 +40,125 @@
           align-items: center;
           justify-content: center;
           background: #0f172a;
-          position: relative;
+          gap: 20px;
         }
 
-        .game-wrapper {
+        .stats {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: #94a3b8;
+        }
+
+        .reaction-circle {
+          width: 280px;
+          height: 280px;
+          border-radius: 50%;
+          background: #ef4444;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 15px;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+          transition: transform 0.08s;
+          border: 4px solid rgba(255,255,255,0.15);
+          text-align: center;
+          padding: 20px;
+        }
+        .reaction-circle:active { transform: scale(0.97); }
+
+        .main-title {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: #ffffff;
+          margin-bottom: 6px;
         }
 
-        .scoreboard {
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: #38bdf8;
-        }
-
-        canvas {
-          background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
-          border: 2px solid #334155;
-          border-radius: 16px;
-          box-shadow: 0 15px 35px rgba(0,0,0,0.6);
-        }
-
-        .controls-hint {
-          color: #94a3b8;
-          font-size: 0.9rem;
+        .sub-text {
+          font-size: 1rem;
+          color: rgba(255,255,255,0.85);
+          font-weight: 600;
         }
       </style>
 
       <!-- Navigation Header -->
       <div class="navbar">
         <div class="nav-left">
-          <div class="smiley-logo">
-            <div class="eye left"></div>
-            <div class="eye right"></div>
-            <div class="smile"></div>
-          </div>
-          <div class="logo-text">dormo.io 3D</div>
+          <div class="logo-icon">⏰</div>
+          <div class="logo-text">dormo.io Reaction</div>
         </div>
       </div>
 
       <!-- Main Game Area -->
       <div class="content">
-        <div class="game-wrapper">
-          <div class="scoreboard" id="scoreDisplay">Territory Captured: 0%</div>
-          <canvas id="gameCanvas" width="700" height="450"></canvas>
-          <div class="controls-hint">Use <b>Arrow Keys</b> or <b>W, A, S, D</b> to navigate! Avoid AI trails!</div>
+        <div class="stats" id="bestScore">Best Time: --</div>
+        <div id="gameBox" class="reaction-circle" onclick="handleClick()">
+          <div class="main-title" id="mainText">Click to Start</div>
+          <div class="sub-text" id="subText">Test your reflex speed</div>
         </div>
       </div>
 
       <script type="text/javascript">
         <![CDATA[
-        document.title = "dormo.io";
+        document.title = "dormo.io - Reaction Test";
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        let gameState = 'IDLE'; // IDLE, WAITING, READY, RESULT
+        let startTime = 0;
+        let timerInterval = null;
+        let timeoutId = null;
+        let bestTime = null;
 
-        const fov = 400;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2 - 40;
+        const box = document.getElementById('gameBox');
+        const mainText = document.getElementById('mainText');
+        const subText = document.getElementById('subText');
+        const bestScoreEl = document.getElementById('bestScore');
 
-        let player = {
-          x: 0,
-          z: 0,
-          dx: 2.5,
-          dz: 0,
-          radius: 16,
-          trail: []
-        };
-
-        // AI Bot Opponents
-        let bots = [
-          { x: -150, z: -100, dx: 0, dz: 2, color: '#ef4444', radius: 14, trail: [], timer: 0 },
-          { x: 150, z: 100, dx: -2, dz: 0, color: '#22c55e', radius: 14, trail: [], timer: 0 },
-          { x: -150, z: 100, dx: 2, dz: 0, color: '#eab308', radius: 14, trail: [], timer: 0 }
-        ];
-
-        let score = 0;
-
-        window.addEventListener('keydown', e => {
-          if ((e.key === 'ArrowUp' || e.key === 'w') && player.dz === 0) { player.dx = 0; player.dz = -2.5; }
-          if ((e.key === 'ArrowDown' || e.key === 's') && player.dz === 0) { player.dx = 0; player.dz = 2.5; }
-          if ((e.key === 'ArrowLeft' || e.key === 'a') && player.dx === 0) { player.dx = -2.5; player.dz = 0; }
-          if ((e.key === 'ArrowRight' || e.key === 'd') && player.dx === 0) { player.dx = 2.5; player.dz = 0; }
-        });
-
-        function project(x, y, z) {
-          const tiltY = y - 250; 
-          const scale = fov / (fov + z + 100);
-          return {
-            x: cx + x * scale,
-            y: cy + tiltY * scale,
-            scale: scale
-          };
-        }
-
-        function update() {
-          // Update Player
-          player.x += player.dx;
-          player.z += player.dz;
-
-          if (player.x < -250) player.x = 250;
-          if (player.x > 250) player.x = -250;
-          if (player.z < -200) player.z = 200;
-          if (player.z > 200) player.z = -200;
-
-          if (Math.random() < 0.2) {
-            player.trail.push({x: player.x, z: player.z});
-            if (player.trail.length > 180) player.trail.shift();
-            score = Math.min(100, Math.floor(player.trail.length * 0.6));
-            document.getElementById('scoreDisplay').textContent = "Territory Captured: " + score + "%";
-          }
-
-          // Update AI Bots
-          bots.forEach(bot => {
-            bot.x += bot.dx;
-            bot.z += bot.dz;
-            bot.timer++;
-
-            // Random turning behavior for AI bots
-            if (bot.timer > 60 + Math.random() * 60) {
-              bot.timer = 0;
-              const dirs = [
-                {dx: 2, dz: 0}, {dx: -2, dz: 0},
-                {dx: 0, dz: 2}, {dx: 0, dz: -2}
-              ];
-              const newDir = dirs[Math.floor(Math.random() * dirs.length)];
-              bot.dx = newDir.dx;
-              bot.dz = newDir.dz;
-            }
-
-            if (bot.x < -250) bot.x = 250;
-            if (bot.x > 250) bot.x = -250;
-            if (bot.z < -200) bot.z = 200;
-            if (bot.z > 200) bot.z = -200;
-
-            if (Math.random() < 0.25) {
-              bot.trail.push({x: bot.x, z: bot.z});
-              if (bot.trail.length > 120) bot.trail.shift();
-            }
-          });
-        }
-
-        function drawGrid3D() {
-          ctx.strokeStyle = '#1e293b';
-          ctx.lineWidth = 1.2;
-
-          const step = 40;
-          const xLimit = 250;
-          const zLimit = 200;
-
-          for (let i = -xLimit; i <= xLimit; i += step) {
-            let p1 = project(i, 0, -zLimit);
-            let p2 = project(i, 0, zLimit);
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
-
-          for (let i = -zLimit; i <= zLimit; i += step) {
-            let p3 = project(-xLimit, 0, i);
-            let p4 = project(xLimit, 0, i);
-            ctx.beginPath();
-            ctx.moveTo(p3.x, p3.y);
-            ctx.lineTo(p4.x, p4.y);
-            ctx.stroke();
-          }
-        }
-
-        function draw() {
-          ctx.fillStyle = '#0b0f19';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          drawGrid3D();
-
-          // Draw Bot Trails & Bots
-          bots.forEach(bot => {
-            bot.trail.forEach(t => {
-              const p = project(t.x, 0, t.z);
-              if (p.scale > 0) {
-                ctx.fillStyle = bot.color;
-                ctx.fillRect(p.x - (7 * p.scale), p.y - (7 * p.scale), 14 * p.scale, 14 * p.scale);
-              }
-            });
-
-            const bp = project(bot.x, 0, bot.z);
-            if (bp.scale > 0) {
-              ctx.fillStyle = bot.color;
-              ctx.beginPath();
-              ctx.arc(bp.x, bp.y, bot.radius * bp.scale, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          });
-
-          // Draw Player Territory Trail
-          player.trail.forEach((t) => {
-            const p = project(t.x, 0, t.z);
-            if (p.scale > 0) {
-              ctx.fillStyle = '#f97316';
-              ctx.fillRect(p.x - (8 * p.scale), p.y - (8 * p.scale), 16 * p.scale, 16 * p.scale);
-            }
-          });
-
-          // Draw Player (Overhead 3D Smiley Face)
-          const p = project(player.x, 0, player.z);
-          if (p.scale > 0) {
-            const r = player.radius * p.scale;
+        function handleClick() {
+          if (gameState === 'IDLE' || gameState === 'RESULT') {
+            // Enter waiting phase
+            gameState = 'WAITING';
+            box.style.background = '#ef4444'; // Red
+            mainText.textContent = 'Wait for Green...';
+            subText.textContent = '';
             
-            ctx.fillStyle = '#f97316';
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#ea580c';
-            ctx.lineWidth = 2 * p.scale;
-            ctx.stroke();
+            const randomDelay = Math.random() * 2500 + 1500; // 1.5 to 4 seconds
+            timeoutId = setTimeout(() => {
+              gameState = 'READY';
+              box.style.background = '#22c55e'; // Green
+              mainText.textContent = 'CLICK NOW!';
+              subText.textContent = '0.000 s';
+              startTime = performance.now();
+              
+              // Start live counter
+              timerInterval = setInterval(() => {
+                const elapsed = (performance.now() - startTime) / 1000;
+                subText.textContent = elapsed.toFixed(3) + ' s';
+              }, 10);
+            }, randomDelay);
 
-            const eyeSize = Math.max(2, 3.5 * p.scale);
-            ctx.fillStyle = '#7c2d12';
-            ctx.fillRect(p.x - 5 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);
-            ctx.fillRect(p.x + 3 * p.scale, p.y - 4 * p.scale, eyeSize, eyeSize);
+          } else if (gameState === 'WAITING') {
+            // Clicked too early!
+            clearTimeout(timeoutId);
+            gameState = 'IDLE';
+            box.style.background = '#eab308'; // Warning Yellow
+            mainText.textContent = 'Too Early!';
+            subText.textContent = 'Click to try again';
 
-            ctx.strokeStyle = '#7c2d12';
-            ctx.lineWidth = 1.5 * p.scale;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y + 2 * p.scale, 4 * p.scale, 0, Math.PI, false);
-            ctx.stroke();
+          } else if (gameState === 'READY') {
+            // Successful reaction click!
+            clearInterval(timerInterval);
+            const reactionTime = (performance.now() - startTime) / 1000;
+            gameState = 'RESULT';
+            box.style.background = '#3b82f6'; // Blue result card
+            mainText.textContent = reactionTime.toFixed(3) + ' s';
+            subText.textContent = 'Click to play again';
+
+            if (bestTime === null || reactionTime < bestTime) {
+              bestTime = reactionTime;
+              bestScoreEl.textContent = 'Best Time: ' + bestTime.toFixed(3) + ' s';
+            }
           }
         }
-
-        function loop() {
-          update();
-          draw();
-          requestAnimationFrame(loop);
-        }
-
-        loop();
         ]]>
       </script>
     </div>
